@@ -34,7 +34,7 @@ impl Client {
         self.available_funds += deposit;
     }
 
-    pub fn withdrawal(&mut self, tx: &Transaction) {
+    pub fn withdraw(&mut self, tx: &Transaction) {
         let withdrawal = tx.amount.unwrap();
 
         if self.available_funds >= withdrawal {
@@ -71,5 +71,109 @@ impl Client {
             self.held_funds -= amount;
             self.locked = true;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn initalization() {
+        let client = Client::new(42);
+        assert_eq!(client.id, 42);
+        assert_eq!(client.available_funds, 0.0);
+        assert_eq!(client.held_funds, 0.0);
+        assert_eq!(client.total_funds, 0.0);
+        assert_eq!(client.locked, false);
+        assert_eq!(client.disputes.len(), 0);
+    }
+
+    #[test]
+    fn deposit() {
+        let mut client = Client::new(42);
+        let tx = Transaction {
+            id: 42,
+            kind: "deposit".into(),
+            amount: Some(1337.0),
+            client_id: client.id,
+        };
+        client.deposit(&tx);
+
+        assert_eq!(client.available_funds, 1337.0);
+        assert_eq!(client.total_funds, 1337.0);
+    }
+
+    #[test]
+    fn withdrawal() {
+        let mut client = Client::new(42);
+        client.available_funds = 1337.0;
+        client.total_funds = 1337.0;
+        let tx = Transaction {
+            id: 42,
+            kind: "withdrawal".into(),
+            amount: Some(1337.0),
+            client_id: client.id,
+        };
+        client.withdraw(&tx);
+
+        assert_eq!(client.available_funds, 0.0);
+        assert_eq!(client.total_funds, 0.0);
+    }
+
+    #[test]
+    fn dispute() {
+        let mut client = Client::new(42);
+        client.available_funds = 1337.0;
+        let tx = Transaction {
+            id: 42,
+            kind: "dispute".into(),
+            amount: Some(1337.0),
+            client_id: client.id,
+        };
+        client.dispute(Some(&tx));
+
+        assert_eq!(client.available_funds, 0.0);
+        assert_eq!(client.held_funds, 1337.0);
+        assert_eq!(client.disputes.get(&tx.id), Some(&tx.id));
+    }
+
+    #[test]
+    fn resolve() {
+        let mut client = Client::new(42);
+        client.available_funds = 0.0;
+        client.held_funds = 1337.0;
+        let tx = Transaction {
+            id: 42,
+            kind: "resolve".into(),
+            amount: Some(1337.0),
+            client_id: client.id,
+        };
+        client.disputes.insert(tx.id);
+        client.resolve(Some(&tx));
+
+        assert_eq!(client.available_funds, 1337.0);
+        assert_eq!(client.held_funds, 0.0);
+        assert_eq!(client.disputes.get(&tx.id), None);
+    }
+
+    #[test]
+    fn chargeback() {
+        let mut client = Client::new(42);
+        client.total_funds = 1337.0;
+        client.held_funds = 1337.0;
+        assert_eq!(client.locked, false);
+
+        let tx = Transaction {
+            id: 42,
+            kind: "chargeback".into(),
+            amount: Some(1337.0),
+            client_id: client.id,
+        };
+        client.chargeback(Some(&tx));
+
+        assert_eq!(client.total_funds, 0.0);
+        assert_eq!(client.held_funds, 0.0);
+        assert_eq!(client.locked, true);
     }
 }
