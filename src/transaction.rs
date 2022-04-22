@@ -5,13 +5,13 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Transaction {
-    #[serde(rename = "type")]
-    pub kind: String,
-    #[serde(rename = "client")]
-    pub client_id: u16,
     #[serde(rename = "tx")]
     pub id: u32,
+    #[serde(rename = "type")]
+    pub kind: String,
     pub amount: Option<f32>,
+    #[serde(rename = "client")]
+    pub client_id: u16,
 }
 
 pub enum TransactionType {

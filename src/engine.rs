@@ -29,7 +29,7 @@ fn process_record(
             transactions.insert(tx.id, tx);
         }
         TransactionType::Withdrawal => {
-            client.withdrawal(&tx);
+            client.withdraw(&tx);
             transactions.insert(tx.id, tx);
         }
         TransactionType::Dispute => {
