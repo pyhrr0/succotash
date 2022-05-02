@@ -6,10 +6,10 @@ use crate::transaction::Transaction;
 
 #[derive(Serialize)]
 pub struct Client {
-    pub id: u16,
-    pub available_funds: f32,
-    pub held_funds: f32,
-    pub total_funds: f32,
+    pub client: u16,
+    pub available: f32,
+    pub held: f32,
+    pub total: f32,
     pub locked: bool,
     #[serde(skip_serializing)]
     disputes: HashSet<u32>,
@@ -18,10 +18,10 @@ pub struct Client {
 impl Client {
     pub fn new(id: u16) -> Self {
         Client {
-            id: id,
-            total_funds: 0.0,
-            available_funds: 0.0,
-            held_funds: 0.0,
+            client: id,
+            total: 0.0,
+            available: 0.0,
+            held: 0.0,
             locked: false,
             disputes: HashSet::<u32>::new(),
         }
@@ -30,16 +30,16 @@ impl Client {
     pub fn deposit(&mut self, tx: &Transaction) {
         let deposit = tx.amount.unwrap();
 
-        self.total_funds += deposit;
-        self.available_funds += deposit;
+        self.total += deposit;
+        self.available += deposit;
     }
 
     pub fn withdraw(&mut self, tx: &Transaction) {
         let withdrawal = tx.amount.unwrap();
 
-        if self.available_funds >= withdrawal {
-            self.total_funds -= withdrawal;
-            self.available_funds -= withdrawal;
+        if self.available >= withdrawal {
+            self.total -= withdrawal;
+            self.available -= withdrawal;
         }
     }
 
@@ -47,8 +47,8 @@ impl Client {
         if let Some(tx) = tx {
             let dispute = tx.amount.unwrap();
 
-            self.available_funds -= dispute;
-            self.held_funds += dispute;
+            self.available -= dispute;
+            self.held += dispute;
             self.disputes.insert(tx.id);
         }
     }
@@ -57,8 +57,8 @@ impl Client {
         if let Some(tx) = tx {
             let amount = tx.amount.unwrap();
 
-            self.available_funds += amount;
-            self.held_funds -= amount;
+            self.available += amount;
+            self.held -= amount;
             self.disputes.remove(&tx.id);
         }
     }
@@ -67,8 +67,8 @@ impl Client {
         if let Some(tx) = tx {
             let amount = tx.amount.unwrap();
 
-            self.total_funds -= amount;
-            self.held_funds -= amount;
+            self.total -= amount;
+            self.held -= amount;
             self.locked = true;
         }
     }
@@ -81,10 +81,10 @@ mod tests {
     #[test]
     fn initalization() {
         let client = Client::new(42);
-        assert_eq!(client.id, 42);
-        assert_eq!(client.available_funds, 0.0);
-        assert_eq!(client.held_funds, 0.0);
-        assert_eq!(client.total_funds, 0.0);
+        assert_eq!(client.client, 42);
+        assert_eq!(client.available, 0.0);
+        assert_eq!(client.held, 0.0);
+        assert_eq!(client.total, 0.0);
         assert_eq!(client.locked, false);
         assert_eq!(client.disputes.len(), 0);
     }
@@ -96,84 +96,84 @@ mod tests {
             id: 42,
             kind: "deposit".into(),
             amount: Some(1337.0),
-            client_id: client.id,
+            client_id: client.client,
         };
         client.deposit(&tx);
 
-        assert_eq!(client.available_funds, 1337.0);
-        assert_eq!(client.total_funds, 1337.0);
+        assert_eq!(client.available, 1337.0);
+        assert_eq!(client.total, 1337.0);
     }
 
     #[test]
     fn withdrawal() {
         let mut client = Client::new(42);
-        client.available_funds = 1337.0;
-        client.total_funds = 1337.0;
+        client.available = 1337.0;
+        client.total = 1337.0;
         let tx = Transaction {
             id: 42,
             kind: "withdrawal".into(),
             amount: Some(1337.0),
-            client_id: client.id,
+            client_id: client.client,
         };
         client.withdraw(&tx);
 
-        assert_eq!(client.available_funds, 0.0);
-        assert_eq!(client.total_funds, 0.0);
+        assert_eq!(client.available, 0.0);
+        assert_eq!(client.total, 0.0);
     }
 
     #[test]
     fn dispute() {
         let mut client = Client::new(42);
-        client.available_funds = 1337.0;
+        client.available = 1337.0;
         let tx = Transaction {
             id: 42,
             kind: "dispute".into(),
             amount: Some(1337.0),
-            client_id: client.id,
+            client_id: client.client,
         };
         client.dispute(Some(&tx));
 
-        assert_eq!(client.available_funds, 0.0);
-        assert_eq!(client.held_funds, 1337.0);
+        assert_eq!(client.available, 0.0);
+        assert_eq!(client.held, 1337.0);
         assert_eq!(client.disputes.get(&tx.id), Some(&tx.id));
     }
 
     #[test]
     fn resolve() {
         let mut client = Client::new(42);
-        client.available_funds = 0.0;
-        client.held_funds = 1337.0;
+        client.available = 0.0;
+        client.held = 1337.0;
         let tx = Transaction {
             id: 42,
             kind: "resolve".into(),
             amount: Some(1337.0),
-            client_id: client.id,
+            client_id: client.client,
         };
         client.disputes.insert(tx.id);
         client.resolve(Some(&tx));
 
-        assert_eq!(client.available_funds, 1337.0);
-        assert_eq!(client.held_funds, 0.0);
+        assert_eq!(client.available, 1337.0);
+        assert_eq!(client.held, 0.0);
         assert_eq!(client.disputes.get(&tx.id), None);
     }
 
     #[test]
     fn chargeback() {
         let mut client = Client::new(42);
-        client.total_funds = 1337.0;
-        client.held_funds = 1337.0;
+        client.total = 1337.0;
+        client.held = 1337.0;
         assert_eq!(client.locked, false);
 
         let tx = Transaction {
             id: 42,
             kind: "chargeback".into(),
             amount: Some(1337.0),
-            client_id: client.id,
+            client_id: client.client,
         };
         client.chargeback(Some(&tx));
 
-        assert_eq!(client.total_funds, 0.0);
-        assert_eq!(client.held_funds, 0.0);
+        assert_eq!(client.total, 0.0);
+        assert_eq!(client.held, 0.0);
         assert_eq!(client.locked, true);
     }
 }
